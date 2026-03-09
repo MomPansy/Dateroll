@@ -12,6 +12,13 @@ private struct DateGroupingServiceKey: EnvironmentKey {
 private struct GeocodingServiceKey: EnvironmentKey {
     static let defaultValue = GeocodingService()
 }
+private struct FaceStoreKey: EnvironmentKey {
+    static let defaultValue: any FaceStoreProtocol = FaceStore()
+}
+private struct FaceDetectionServiceKey: EnvironmentKey {
+    static let defaultValue: any FaceDetectionServiceProtocol = MockFaceDetectionService()
+}
+
 extension EnvironmentValues {
     var photoService: any PhotoLibraryServiceProtocol {
         get { self[PhotoServiceKey.self] }
@@ -28,5 +35,13 @@ extension EnvironmentValues {
     var geocodingService: GeocodingService {
         get { self[GeocodingServiceKey.self] }
         set { self[GeocodingServiceKey.self] = newValue }
+    }
+    var faceStore: any FaceStoreProtocol {
+        get { self[FaceStoreKey.self] }
+        set { self[FaceStoreKey.self] = newValue }
+    }
+    var faceDetectionService: any FaceDetectionServiceProtocol {
+        get { self[FaceDetectionServiceKey.self] }
+        set { self[FaceDetectionServiceKey.self] = newValue }
     }
 }
