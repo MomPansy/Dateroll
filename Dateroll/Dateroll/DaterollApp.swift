@@ -7,6 +7,7 @@ struct DaterollApp: App {
     private let imageLoader = ImageLoader()
     private let groupingService = DateGroupingService()
     private let geocodingService = GeocodingService()
+    private let faceStore = FaceStore()
 
     #if DEBUG
     @State private var dataSourceManager: DataSourceManager?
@@ -22,7 +23,7 @@ struct DaterollApp: App {
                     .environment(\.imageLoader, manager.imageLoader)
                     .environment(\.dateGroupingService, groupingService)
                     .environment(\.geocodingService, geocodingService)
-
+                    .environment(\.faceStore, faceStore)
                     .environment(manager)
             } else {
                 ProgressView()
