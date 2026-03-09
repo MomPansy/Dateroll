@@ -15,6 +15,9 @@ private struct GeocodingServiceKey: EnvironmentKey {
 private struct FaceStoreKey: EnvironmentKey {
     static let defaultValue: any FaceStoreProtocol = FaceStore()
 }
+private struct FaceDetectionServiceKey: EnvironmentKey {
+    static let defaultValue: any FaceDetectionServiceProtocol = MockFaceDetectionService()
+}
 
 extension EnvironmentValues {
     var photoService: any PhotoLibraryServiceProtocol {
@@ -36,5 +39,9 @@ extension EnvironmentValues {
     var faceStore: any FaceStoreProtocol {
         get { self[FaceStoreKey.self] }
         set { self[FaceStoreKey.self] = newValue }
+    }
+    var faceDetectionService: any FaceDetectionServiceProtocol {
+        get { self[FaceDetectionServiceKey.self] }
+        set { self[FaceDetectionServiceKey.self] = newValue }
     }
 }

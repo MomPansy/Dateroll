@@ -4,6 +4,8 @@ enum DaterollError: LocalizedError, Sendable {
     case photoAccessDenied
     case photoAccessRestricted
     case loadFailed(underlying: any Error)
+    case faceModelLoadFailed
+    case faceScanFailed(underlying: any Error)
 
     var errorDescription: String? {
         switch self {
@@ -13,6 +15,10 @@ enum DaterollError: LocalizedError, Sendable {
             return "Photo library access is restricted on this device."
         case .loadFailed(let error):
             return error.localizedDescription
+        case .faceModelLoadFailed:
+            return "Failed to load the face detection model."
+        case .faceScanFailed(let error):
+            return "Face scan failed: \(error.localizedDescription)"
         }
     }
 }

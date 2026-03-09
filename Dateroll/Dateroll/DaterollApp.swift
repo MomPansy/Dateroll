@@ -8,6 +8,11 @@ struct DaterollApp: App {
     private let groupingService = DateGroupingService()
     private let geocodingService = GeocodingService()
     private let faceStore = FaceStore()
+    private let faceDetectionService: any FaceDetectionServiceProtocol
+
+    init() {
+        faceDetectionService = (try? FaceDetectionService(faceStore: faceStore)) ?? MockFaceDetectionService()
+    }
 
     #if DEBUG
     @State private var dataSourceManager: DataSourceManager?
@@ -24,6 +29,7 @@ struct DaterollApp: App {
                     .environment(\.dateGroupingService, groupingService)
                     .environment(\.geocodingService, geocodingService)
                     .environment(\.faceStore, faceStore)
+                    .environment(\.faceDetectionService, faceDetectionService)
                     .environment(manager)
             } else {
                 ProgressView()
@@ -42,6 +48,7 @@ struct DaterollApp: App {
                 .environment(\.dateGroupingService, groupingService)
                 .environment(\.geocodingService, geocodingService)
                 .environment(\.faceStore, faceStore)
+                .environment(\.faceDetectionService, faceDetectionService)
             #endif
         }
     }
