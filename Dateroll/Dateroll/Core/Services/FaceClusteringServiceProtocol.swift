@@ -1,6 +1,6 @@
 import Foundation
 
-enum ClusteringConfig {
+nonisolated enum ClusteringConfig {
     static let assignmentThreshold: Float = 0.55
     static let reclusterThreshold: Float = 0.45
     static let centroidCap: Int = 50
