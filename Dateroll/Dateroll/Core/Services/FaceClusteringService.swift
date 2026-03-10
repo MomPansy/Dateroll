@@ -36,7 +36,74 @@ actor FaceClusteringService: FaceClusteringServiceProtocol {
     }
 
     func reclusterAll() async {
-        // Implemented in Task 6
+        let clusters = await faceStore.allClusters()
+        let allFaces = await faceStore.allFaces()
+
+        guard !clusters.isEmpty else { return }
+
+        // Separate large (confident) clusters from small ones
+        let largeClusters = clusters.filter { $0.faceIDs.count >= ClusteringConfig.smallClusterLimit }
+        let smallClusters = clusters.filter { $0.faceIDs.count < ClusteringConfig.smallClusterLimit }
+
+        guard !smallClusters.isEmpty else { return }
+
+        // Build face lookup
+        let faceLookup = Dictionary(uniqueKeysWithValues: allFaces.map { ($0.id, $0) })
+
+        // Collect all faces from small clusters for re-clustering
+        let facesToRecluster: [DetectedFace] = smallClusters.flatMap { cluster in
+            cluster.faceIDs.compactMap { faceLookup[$0] }
+        }
+
+        guard !facesToRecluster.isEmpty else { return }
+
+        // HAC: start with each face as its own cluster
+        var hacClusters: [(faceIDs: [String], embedding: FaceEmbedding)] = facesToRecluster.map {
+            (faceIDs: [$0.id], embedding: $0.embedding)
+        }
+
+        // Repeatedly merge closest pair until no pair exceeds threshold
+        while hacClusters.count > 1 {
+            var bestI = 0
+            var bestJ = 1
+            var bestSimilarity: Float = -1
+
+            for i in 0..<hacClusters.count {
+                for j in (i + 1)..<hacClusters.count {
+                    let similarity = await hacClusters[i].embedding.cosineSimilarity(
+                        to: hacClusters[j].embedding
+                    )
+                    if similarity > bestSimilarity {
+                        bestSimilarity = similarity
+                        bestI = i
+                        bestJ = j
+                    }
+                }
+            }
+
+            guard bestSimilarity > ClusteringConfig.reclusterThreshold else { break }
+
+            // Merge bestJ into bestI
+            let mergedFaceIDs = hacClusters[bestI].faceIDs + hacClusters[bestJ].faceIDs
+            let mergedEmbedding = averageEmbedding(
+                hacClusters[bestI].embedding, count: hacClusters[bestI].faceIDs.count,
+                hacClusters[bestJ].embedding, count: hacClusters[bestJ].faceIDs.count
+            )
+            hacClusters[bestI] = (faceIDs: mergedFaceIDs, embedding: mergedEmbedding)
+            hacClusters.remove(at: bestJ)
+        }
+
+        // Convert HAC results back to FaceCluster structs
+        var newSmallClusters: [FaceCluster] = []
+        for item in hacClusters {
+            let cluster = await FaceCluster(
+                faceIDs: item.faceIDs,
+                representativeEmbedding: item.embedding
+            )
+            newSmallClusters.append(cluster)
+        }
+
+        await faceStore.setClusters(largeClusters + newSmallClusters)
     }
 
     func clusterCount() async -> Int {
@@ -80,5 +147,18 @@ actor FaceClusteringService: FaceClusteringServiceProtocol {
         }
 
         return FaceEmbedding(values: updated)
+    }
+
+    private nonisolated func averageEmbedding(
+        _ a: FaceEmbedding, count countA: Int,
+        _ b: FaceEmbedding, count countB: Int
+    ) -> FaceEmbedding {
+        let totalCount = Float(countA + countB)
+        let count = a.values.count
+        var values = [Float](repeating: 0, count: count)
+        for i in 0..<count {
+            values[i] = (Float(countA) * a.values[i] + Float(countB) * b.values[i]) / totalCount
+        }
+        return FaceEmbedding(values: values)
     }
 }
