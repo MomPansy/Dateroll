@@ -98,3 +98,44 @@ struct FaceClusteringAssignTests {
         #expect(clusters[0].faceIDs.count == 2)
     }
 }
+
+@MainActor
+@Suite("FaceClusteringService - centroid capping")
+struct FaceClusteringCentroidTests {
+
+    @Test func centroidDoesNotDriftBeyondCap() async {
+        let store = MockFaceStore()
+        let service = FaceClusteringService(faceStore: store)
+
+        // Add 60 faces with embedding [1,1,...] to build a large cluster
+        var faces: [DetectedFace] = []
+        for i in 0..<60 {
+            let face = DetectedFace(
+                assetID: "a\(i)",
+                boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+                embedding: FaceEmbedding(values: Array(repeating: Float(1.0), count: FaceEmbedding.dimensions))
+            )
+            faces.append(face)
+        }
+        await store.addFaces(faces)
+        await service.assignToClusters(faces)
+
+        // Now add a face with embedding [0.9, 0.9, ...] — similar enough to match
+        let outlier = DetectedFace(
+            assetID: "outlier",
+            boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+            embedding: FaceEmbedding(values: Array(repeating: Float(0.9), count: FaceEmbedding.dimensions))
+        )
+        await store.addFaces([outlier])
+        await service.assignToClusters([outlier])
+
+        let clusters = await store.allClusters()
+        #expect(clusters.count == 1)
+        #expect(clusters[0].faceIDs.count == 61)
+
+        // Centroid should barely move because cap is 50
+        // New centroid = (50 * 1.0 + 0.9) / 51 ≈ 0.998
+        let centroid = clusters[0].representativeEmbedding.values[0]
+        #expect(centroid > 0.99)
+    }
+}
