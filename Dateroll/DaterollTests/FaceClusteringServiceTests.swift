@@ -139,3 +139,109 @@ struct FaceClusteringCentroidTests {
         #expect(centroid > 0.99)
     }
 }
+
+@MainActor
+@Suite("FaceClusteringService - reclusterAll")
+struct FaceClusteringReclusterTests {
+
+    private func makeEmbedding(_ value: Float) -> FaceEmbedding {
+        FaceEmbedding(values: Array(repeating: value, count: FaceEmbedding.dimensions))
+    }
+
+    @Test func reclusterMergesSmallSimilarClusters() async {
+        let store = MockFaceStore()
+        let service = FaceClusteringService(faceStore: store)
+
+        let face1 = DetectedFace(
+            assetID: "a1",
+            boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+            embedding: makeEmbedding(1.0)
+        )
+        let face2 = DetectedFace(
+            assetID: "a2",
+            boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+            embedding: makeEmbedding(1.0)
+        )
+
+        await store.addFaces([face1, face2])
+
+        let cluster1 = FaceCluster(faceIDs: [face1.id], representativeEmbedding: face1.embedding)
+        let cluster2 = FaceCluster(faceIDs: [face2.id], representativeEmbedding: face2.embedding)
+        await store.setClusters([cluster1, cluster2])
+
+        await service.reclusterAll()
+
+        let clusters = await store.allClusters()
+        #expect(clusters.count == 1)
+        #expect(clusters[0].faceIDs.count == 2)
+    }
+
+    @Test func reclusterLeavesLargeClustersAlone() async {
+        let store = MockFaceStore()
+        let service = FaceClusteringService(faceStore: store)
+
+        var largeFaces: [DetectedFace] = []
+        var largeFaceIDs: [String] = []
+        for i in 0..<6 {
+            let face = DetectedFace(
+                assetID: "large-\(i)",
+                boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+                embedding: makeEmbedding(1.0)
+            )
+            largeFaces.append(face)
+            largeFaceIDs.append(face.id)
+        }
+
+        let smallFace = DetectedFace(
+            assetID: "small-0",
+            boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+            embedding: makeEmbedding(1.0)
+        )
+
+        await store.addFaces(largeFaces + [smallFace])
+
+        let largeCluster = FaceCluster(
+            faceIDs: largeFaceIDs,
+            representativeEmbedding: makeEmbedding(1.0)
+        )
+        let smallCluster = FaceCluster(
+            faceIDs: [smallFace.id],
+            representativeEmbedding: smallFace.embedding
+        )
+        await store.setClusters([largeCluster, smallCluster])
+
+        await service.reclusterAll()
+
+        let clusters = await store.allClusters()
+        let large = clusters.first { $0.faceIDs.count == 6 }
+        #expect(large != nil)
+        #expect(large?.id == largeCluster.id)
+    }
+
+    @Test func reclusterWithDistantEmbeddingsKeepsSeparate() async {
+        let store = MockFaceStore()
+        let service = FaceClusteringService(faceStore: store)
+
+        let face1 = DetectedFace(
+            assetID: "a1",
+            boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+            embedding: makeEmbedding(1.0)
+        )
+        let face2 = DetectedFace(
+            assetID: "a2",
+            boundingBox: NormalizedRect(cgRect: CGRect(x: 0, y: 0, width: 0.5, height: 0.5)),
+            embedding: makeEmbedding(-1.0)
+        )
+
+        await store.addFaces([face1, face2])
+
+        let cluster1 = FaceCluster(faceIDs: [face1.id], representativeEmbedding: face1.embedding)
+        let cluster2 = FaceCluster(faceIDs: [face2.id], representativeEmbedding: face2.embedding)
+        await store.setClusters([cluster1, cluster2])
+
+        await service.reclusterAll()
+
+        let clusters = await store.allClusters()
+        #expect(clusters.count == 2)
+    }
+}
