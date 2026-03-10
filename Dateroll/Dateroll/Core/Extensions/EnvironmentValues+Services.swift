@@ -18,6 +18,9 @@ private struct FaceStoreKey: EnvironmentKey {
 private struct FaceDetectionServiceKey: EnvironmentKey {
     static let defaultValue: any FaceDetectionServiceProtocol = MockFaceDetectionService()
 }
+private struct FaceClusteringServiceKey: EnvironmentKey {
+    static let defaultValue: any FaceClusteringServiceProtocol = MockFaceClusteringService()
+}
 
 extension EnvironmentValues {
     var photoService: any PhotoLibraryServiceProtocol {
@@ -43,5 +46,9 @@ extension EnvironmentValues {
     var faceDetectionService: any FaceDetectionServiceProtocol {
         get { self[FaceDetectionServiceKey.self] }
         set { self[FaceDetectionServiceKey.self] = newValue }
+    }
+    var faceClusteringService: any FaceClusteringServiceProtocol {
+        get { self[FaceClusteringServiceKey.self] }
+        set { self[FaceClusteringServiceKey.self] = newValue }
     }
 }
